@@ -6,8 +6,10 @@ from webdnn.frontend.onnx.converter import ONNXConverter, attribute_dict
 from webdnn.frontend.onnx.type_hint import INodeProto
 from webdnn.graph.operators.average_pooling_2d import AveragePooling2D
 from webdnn.graph.operators.convolution2d import Convolution2D
+from webdnn.graph.operators.deconvolution2d import Deconvolution2D
 from webdnn.graph.operators.max_pooling_2d import MaxPooling2D
 from webdnn.graph.operators.max import Max
+from webdnn.graph.operators.rsqrt import Rsqrt
 from webdnn.graph.operators.sum import Sum
 from webdnn.graph.order import OrderC, OrderNCHW, Order
 from webdnn.util import console
@@ -101,8 +103,30 @@ def _convert_conv(converter: ONNXConverter, onnx_op: INodeProto):
 
 @ONNXConverter.register_handler("ConvTranspose")
 def _convert_conv_transpose(converter: ONNXConverter, onnx_op: INodeProto):
-    # FIXME: It's possible to support in current version of webdnn
-    raise NotImplementedError("[ONNXConverter] Operator \"ConvTranspose\" is not supported yet.")
+    x = converter.get_variable(onnx_op.input[0])
+    x.order.unify(OrderNCHW)
+
+    w = converter.get_variable(onnx_op.input[1])
+    w.order.unify(Order([Axis.C, Axis.N, Axis.KH, Axis.KW]))
+
+    attrs = attribute_dict(onnx_op)
+    ksize = list(attrs["kernel_shape"].ints)
+    stride = list(attrs["strides"].ints)
+
+    pad = list(attrs["pads"].ints)
+    if any(pad[2 * i] != pad[2 * i + 1] for i in range(len(pad) // 2)):
+        raise NotImplementedError("[ONNXConverter] odd-size padding is not supported.")
+    pad = [pad[0], pad[2]]
+
+    y, = Deconvolution2D(None, ksize=ksize, stride=stride, padding=pad)(x, w)
+
+    if len(onnx_op.input) == 3:
+        # with bias
+        b = converter.get_variable(onnx_op.input[2])
+        b.order.unify(OrderC)
+        y = y + b
+
+    converter.set_variable(onnx_op.output[0], y)
 
 
 @ONNXConverter.register_handler("GlobalAveragePool")
@@ -140,8 +164,24 @@ def _convert_global_max_pool(converter: ONNXConverter, onnx_op: INodeProto):
 
 @ONNXConverter.register_handler("BatchNormalization")
 def _convert_batch_normalization(converter: ONNXConverter, onnx_op: INodeProto):
-    # FIXME: It's possible to support in current version of webdnn
-    raise NotImplementedError("[ONNXConverter] Operator \"BatchNormalization\" is not supported yet.")
+    # FIXME: Only supporse BatchNormalization-6, version 1 and version 7 are not supported.
+    x = converter.get_variable(onnx_op.input[0])
+    scale = converter.get_variable(onnx_op.input[1])
+    scale.order.unify(OrderC)
+    b = converter.get_variable(onnx_op.input[2])
+    b.order.unify(OrderC)
+    mean = converter.get_variable(onnx_op.input[3])
+    mean.order.unify(OrderC)
+    var = converter.get_variable(onnx_op.input[4])
+    var.order.unify(OrderC)
+
+    attrs = attribute_dict(onnx_op)
+    epsilon = attrs["epsilon"].f if "epsilon" in attrs else 1e-05
+    momentum = attrs["momentum"].f if "momentum" in attrs else 0.9
+
+    t1, = Rsqrt(None)(var + epsilon)
+    y = (x - mean) * t1 * scale + b
+    converter.set_variable(onnx_op.output[0], y)
 
 
 @ONNXConverter.register_handler("Dropout")
