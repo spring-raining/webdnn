@@ -12,6 +12,7 @@ from webdnn.graph.operators.leaky_relu import LeakyRelu
 from webdnn.graph.operators.log import Log
 from webdnn.graph.operators.max import Max
 from webdnn.graph.operators.relu import Relu
+from webdnn.graph.operators.reshape import Reshape
 from webdnn.graph.operators.select import Select
 from webdnn.graph.operators.sigmoid import Sigmoid
 from webdnn.graph.operators.softmax import Softmax
@@ -383,5 +384,21 @@ def _convert_gemm(converter: ONNXConverter, onnx_op: INodeProto):
 
 @ONNXConverter.register_handler("MatMul")
 def _convert_matmul(converter: ONNXConverter, onnx_op: INodeProto):
-    # FIXME: It's possible to support in current version of webdnn
-    raise NotImplementedError("[ONNXConverter] Operator \"MatMul\" is not supported yet.")
+    A = converter.get_variable(onnx_op.input[0])
+    B = converter.get_variable(onnx_op.input[1])
+
+    reduced_axes = (
+        A.order.axes[A.ndim - 1],
+        B.order.axes[B.ndim - 2]
+    )
+    y, = Tensordot(None, axes=reduced_axes)(A, B)
+    if A.ndim >= 2 and A.ndim < B.ndim:
+        new_index = list(range(A.ndim - 1, B.ndim - 1))\
+                    + list(range(A.ndim - 1))\
+                    + list(range(B.ndim - 1, len(y.shape)))
+        y_axes = y. order.axes
+        out_order = Order([y_axes[i] for i in new_index])
+        out_shape = [y.shape[i] for i in new_index]
+        y, = Reshape(None, in_order=y.order, out_order=out_order, out_shape=out_shape)(y)
+
+    converter.set_variable(onnx_op.output[0], y)
