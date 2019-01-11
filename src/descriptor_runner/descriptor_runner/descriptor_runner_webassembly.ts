@@ -147,7 +147,10 @@ export default class DescriptorRunnerWebassembly extends DescriptorRunner<GraphD
      */
     async fetchParameters(directory: string, progressCallback?: (loaded: number, total: number) => any): Promise<ArrayBuffer> {
         let weight_url = `${directory}/weight_${this.backendName}.bin`;
-        let weight_fetch = await webDNNFetch(weight_url, this.transformUrlDelegate);
+        let weight_fetch = await webDNNFetch(weight_url, this.transformUrlDelegate, {
+            progressCallback,
+            ignoreCache: false,
+        });
         return readArrayBufferProgressively(weight_fetch, progressCallback);
     }
 

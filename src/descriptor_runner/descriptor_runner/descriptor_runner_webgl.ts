@@ -93,7 +93,10 @@ export default class DescriptorRunnerWebGL extends DescriptorRunner<GraphDescrip
     }
 
     async fetchParameters(directory: string, progressCallback?: (loaded: number, total: number) => any) {
-        let res = await webdnnFetch(`${directory}/weight_${this.backendName}_${this.handler.MAX_TEXTURE_SIZE}.bin`, this.transformUrlDelegate);
+        let res = await webdnnFetch(`${directory}/weight_${this.backendName}_${this.handler.MAX_TEXTURE_SIZE}.bin`, this.transformUrlDelegate, {
+            progressCallback,
+            ignoreCache: false,
+        });
         return readArrayBufferProgressively(res, progressCallback);
     }
 

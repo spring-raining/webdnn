@@ -60,7 +60,10 @@ export default class DescriptorRunnerFallback extends DescriptorRunner<GraphDesc
     }
 
     async fetchParameters(directory: string, progressCallback?: (loaded: number, total: number) => any) {
-        let res = await webdnnFetch(`${directory}/weight_${this.backendName}.bin`, this.transformUrlDelegate);
+        let res = await webdnnFetch(`${directory}/weight_${this.backendName}.bin`, this.transformUrlDelegate, {
+            progressCallback,
+            ignoreCache: false,
+        });
         return readArrayBufferProgressively(res, progressCallback);
     }
 

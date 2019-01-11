@@ -155,7 +155,10 @@ using namespace metal;
      * @protected
      */
     async fetchParameters(directory: string, progressCallback?: (loaded: number, total: number) => any): Promise<ArrayBuffer> {
-        let res = await webdnnFetch(`${directory}/weight_${this.backendName}.bin`, this.transformUrlDelegate);
+        let res = await webdnnFetch(`${directory}/weight_${this.backendName}.bin`, this.transformUrlDelegate, {
+            progressCallback,
+            ignoreCache: false,
+        });
         return readArrayBufferProgressively(res, progressCallback);
     }
 
