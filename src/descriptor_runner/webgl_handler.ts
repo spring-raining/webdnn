@@ -228,10 +228,10 @@ export default class WebGLHandler {
 
         // FIXME: In most case, MAX_TEXTURE_SIZE=4096 is the fastest (Why?).
         if (MAX_TEXTURE_SIZE >= 16384) {
-            return 4096;
+            return 16384;
 
         } else if (MAX_TEXTURE_SIZE >= 8192) {
-            return 4096;
+            return 8192;
 
         } else if (MAX_TEXTURE_SIZE >= 4096) {
             return 4096;
